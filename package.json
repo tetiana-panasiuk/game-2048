@@ -1,0 +1,15 @@
+{
+  "name": "game-2048",
+  "version": "1.0.0",
+  "description": "2048 in plain HTML/CSS/JS, built to practice software testing",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "http-server . -p 8080 -c-1",
+    "dev": "http-server . -p 8080 -c-1 -o"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
