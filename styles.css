@@ -6,7 +6,7 @@
   --light-text: #f9f6f2;
   --accent: #8f7a66;
   --gap: 10px;
-  --cell: 80px;
+  --cell: min(80px, calc((100vw - 82px) / 4));
 }
 
 * {
@@ -21,10 +21,10 @@ body {
 }
 
 .app {
-  width: calc(var(--cell) * 4 + var(--gap) * 5);
+  width: calc(var(--cell) * 4 + var(--gap) * 5 + 32px);
   max-width: 100%;
   margin: 0 auto;
-  padding: 24px 12px;
+  padding: 24px 16px;
 }
 
 .header {
