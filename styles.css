@@ -6,6 +6,7 @@
   --light-text: #f9f6f2;
   --accent: #8f7a66;
   --gap: 10px;
+  --merge-duration: 200ms;
   --cell: min(80px, calc((100vw - 82px) / 4));
 }
 
@@ -176,4 +177,36 @@ h1 {
 .message-actions {
   display: flex;
   gap: 8px;
+}
+
+/* Burst when two tiles merge: a quick pop with an expanding ring.
+   Only transform/box-shadow/filter change, so layout never shifts. */
+.cell[data-merged='true'] {
+  position: relative;
+  z-index: 1;
+  animation: merge-burst var(--merge-duration) ease-out;
+}
+
+@keyframes merge-burst {
+  0% {
+    transform: scale(0.9);
+    box-shadow: 0 0 0 0 rgba(255, 244, 200, 0.9);
+    filter: brightness(1.25);
+  }
+  45% {
+    transform: scale(1.22);
+    box-shadow: 0 0 0 6px rgba(255, 220, 120, 0.55);
+    filter: brightness(1.15);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 16px rgba(255, 220, 120, 0);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cell[data-merged='true'] {
+    animation: none;
+  }
 }

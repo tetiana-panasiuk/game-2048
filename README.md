@@ -37,6 +37,12 @@ Params combine, e.g. `?board=1024,1024,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off`.
 
 "New game" ignores `?board`, starts from a fresh seeded sequence (same `?seed` gives the same start), and keeps the best score.
 
+## Merge animation
+
+When two tiles merge, the resulting tile plays a 200 ms burst (pop plus expanding ring). It only uses `transform`, `box-shadow` and `filter`, so layout never shifts, and `data-value` updates immediately. During the animation the cell has `data-merged="true"`. Moves that change nothing don't animate, and `prefers-reduced-motion` disables it. The duration is `--merge-duration` in `styles.css` (keep `MERGE_ANIMATION_MS` in `src/ui.js` in sync).
+
+`game.js` reports which tiles merged: `move()` returns `merged` and `applyMove()` stores it in `state.merged` as `[row, col]` pairs.
+
 ## Debug state
 
 `window.__game` is `{ board, score, status }`, where `board` is a 4x4 array of arrays and `status` is `'playing' | 'won' | 'over'`. It is refreshed after every render. After "Continue" the status goes back to `'playing'`.

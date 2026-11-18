@@ -61,16 +61,19 @@ export function spawnTile(board, rng) {
 
 /**
  * Slides one row to the left. Each tile merges at most once per move.
- * Returns { row, gained, moved }.
+ * Returns { row, gained, moved, mergedAt } where mergedAt lists the indexes
+ * (in the resulting row) of tiles created by a merge.
  */
 export function slideRow(row) {
   const tiles = row.filter((v) => v !== 0);
   const merged = [];
+  const mergedAt = [];
   let gained = 0;
   for (let i = 0; i < tiles.length; i++) {
     if (i + 1 < tiles.length && tiles[i] === tiles[i + 1]) {
       const value = tiles[i] * 2;
       merged.push(value);
+      mergedAt.push(merged.length - 1);
       gained += value;
       i++; // skip the partner: a tile merges only once
     } else {
@@ -79,29 +82,37 @@ export function slideRow(row) {
   }
   while (merged.length < row.length) merged.push(0);
   const moved = merged.some((v, i) => v !== row[i]);
-  return { row: merged, gained, moved };
+  return { row: merged, gained, moved, mergedAt };
 }
 
 function transpose(board) {
   return board[0].map((_, c) => board.map((row) => row[c]));
 }
 
+// The slide helpers return { board, gained, merged } where merged is a list
+// of [row, col] coordinates of tiles created by a merge.
 function slideLeft(board) {
   const results = board.map(slideRow);
   return {
     board: results.map((r) => r.row),
     gained: results.reduce((sum, r) => sum + r.gained, 0),
+    merged: results.flatMap((r, row) => r.mergedAt.map((col) => [row, col])),
   };
 }
 
 function slideRight(board) {
-  const { board: slid, gained } = slideLeft(board.map((row) => row.slice().reverse()));
-  return { board: slid.map((row) => row.reverse()), gained };
+  const { board: slid, gained, merged } = slideLeft(board.map((row) => row.slice().reverse()));
+  return {
+    board: slid.map((row) => row.reverse()),
+    gained,
+    merged: merged.map(([row, col]) => [row, SIZE - 1 - col]),
+  };
 }
 
 /**
  * Applies a move in the given direction ('left' | 'right' | 'up' | 'down').
- * Returns { board, gained, moved }. No tile is spawned here.
+ * Returns { board, gained, moved, merged }. `merged` lists the [row, col]
+ * of every tile created by a merge. No tile is spawned here.
  */
 export function move(board, direction) {
   let result;
@@ -114,12 +125,12 @@ export function move(board, direction) {
       break;
     case 'up': {
       const r = slideLeft(transpose(board));
-      result = { board: transpose(r.board), gained: r.gained };
+      result = { board: transpose(r.board), gained: r.gained, merged: r.merged.map(([row, col]) => [col, row]) };
       break;
     }
     case 'down': {
       const r = slideRight(transpose(board));
-      result = { board: transpose(r.board), gained: r.gained };
+      result = { board: transpose(r.board), gained: r.gained, merged: r.merged.map(([row, col]) => [col, row]) };
       break;
     }
     default:
@@ -167,14 +178,15 @@ export function newGame({ rng = createRng(), board = null } = {}) {
   } else {
     start = spawnTile(spawnTile(emptyBoard(), rng), rng);
   }
-  return { board: start, score: 0, status: getStatus(start), keepPlaying: false };
+  return { board: start, score: 0, status: getStatus(start), keepPlaying: false, merged: [] };
 }
 
 /**
  * Plays one turn. Returns the same state object if the move is not allowed
  * (game not in 'playing' status) or doesn't change the board.
  * Otherwise returns a new state with the score updated and, unless
- * `spawn` is false, one new tile.
+ * `spawn` is false, one new tile. `state.merged` lists the [row, col] of the
+ * tiles created by merges in this move (used by the UI for animation).
  */
 export function applyMove(state, direction, rng, { spawn = true } = {}) {
   if (state.status !== 'playing') return state;
@@ -186,11 +198,12 @@ export function applyMove(state, direction, rng, { spawn = true } = {}) {
     score: state.score + result.gained,
     status: getStatus(board, state.keepPlaying),
     keepPlaying: state.keepPlaying,
+    merged: result.merged,
   };
 }
 
 /** Dismisses the win message and lets the player keep going. */
 export function continueGame(state) {
   if (state.status !== 'won') return state;
-  return { ...state, keepPlaying: true, status: getStatus(state.board, true) };
+  return { ...state, keepPlaying: true, status: getStatus(state.board, true), merged: [] };
 }

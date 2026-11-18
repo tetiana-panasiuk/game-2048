@@ -5,6 +5,7 @@ import { SIZE, createRng, newGame, applyMove, continueGame } from './game.js';
 import { parseParams } from './params.js';
 
 const BEST_KEY = '2048:best';
+const MERGE_ANIMATION_MS = 200; // keep in sync with --merge-duration in styles.css
 
 const KEY_TO_DIRECTION = {
   ArrowLeft: 'left',
@@ -106,7 +107,25 @@ function renderMessages() {
   }
 }
 
-function render() {
+let mergeTimer = null;
+
+// Marks the cells created by merges so CSS plays the burst animation.
+// Re-adding the attribute after a reflow restarts the animation when the
+// same cell merges on consecutive moves.
+function animateMerges(merged) {
+  cellEls.forEach((el) => el.removeAttribute('data-merged'));
+  clearTimeout(mergeTimer);
+  if (merged.length === 0) return;
+  void boardEl.offsetWidth;
+  merged.forEach(([r, c]) => {
+    cellEls[r * SIZE + c].dataset.merged = 'true';
+  });
+  mergeTimer = setTimeout(() => {
+    cellEls.forEach((el) => el.removeAttribute('data-merged'));
+  }, MERGE_ANIMATION_MS);
+}
+
+function render({ animate = false } = {}) {
   state.board.forEach((row, r) =>
     row.forEach((value, c) => {
       const el = cellEls[r * SIZE + c];
@@ -122,6 +141,7 @@ function render() {
   scoreEl.textContent = String(state.score);
   bestEl.textContent = String(best);
 
+  animateMerges(animate ? state.merged : []);
   renderMessages();
 
   window.__game = {
@@ -134,8 +154,10 @@ function render() {
 // ---------- input ----------
 
 function onMove(direction) {
-  state = applyMove(state, direction, rng, { spawn: params.spawn });
-  render();
+  const next = applyMove(state, direction, rng, { spawn: params.spawn });
+  const changed = next !== state; // a blocked or no-op move returns the same state
+  state = next;
+  render({ animate: changed });
 }
 
 function onContinue() {
