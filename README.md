@@ -23,7 +23,7 @@ The game must be served over HTTP (ES modules don't load from `file://`).
 
 ## Controls
 
-Arrow keys or WASD to move, "New game" button to restart.
+Arrow keys or WASD to move, "New game" button to restart. On touch devices swipe on the board (at least 24 px; the dominant axis decides the direction). The board blocks page scrolling and double-tap zoom so swipes don't scroll the page.
 
 ## URL parameters (for testing)
 
@@ -39,7 +39,7 @@ Params combine, e.g. `?board=1024,1024,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off`.
 
 ## Merge animation
 
-When two tiles merge, the resulting tile plays a 200 ms burst (pop plus expanding ring). It only uses `transform`, `box-shadow` and `filter`, so layout never shifts, and `data-value` updates immediately. During the animation the cell has `data-merged="true"`. Moves that change nothing don't animate, and `prefers-reduced-motion` disables it. The duration is `--merge-duration` in `styles.css` (keep `MERGE_ANIMATION_MS` in `src/ui.js` in sync).
+When two tiles merge, the resulting tile plays a 200 ms burst (pop plus expanding ring). It only uses `transform`, `box-shadow` and `filter`, so layout never shifts, and `data-value` updates immediately. While it plays the cell has `data-merged="true"`; each cell removes the attribute itself on `animationend`, so the duration lives only in `--merge-duration` in `styles.css`. Moves that change nothing don't touch the board or any running animation. A cell that merges again mid-animation restarts it. With `prefers-reduced-motion` there is no animation and the attribute is never set.
 
 `game.js` reports which tiles merged: `move()` returns `merged` and `applyMove()` stores it in `state.merged` as `[row, col]` pairs.
 
