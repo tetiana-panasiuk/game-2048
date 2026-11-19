@@ -5,7 +5,7 @@ import { SIZE, createRng, newGame, applyMove, continueGame } from './game.js';
 import { parseParams } from './params.js';
 
 const BEST_KEY = '2048:best';
-const MERGE_ANIMATION_MS = 200; // keep in sync with --merge-duration in styles.css
+const SWIPE_MIN_PX = 24; // shortest finger travel that counts as a swipe
 
 const KEY_TO_DIRECTION = {
   ArrowLeft: 'left',
@@ -107,25 +107,33 @@ function renderMessages() {
   }
 }
 
-let mergeTimer = null;
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-// Marks the cells created by merges so CSS plays the burst animation.
-// Re-adding the attribute after a reflow restarts the animation when the
-// same cell merges on consecutive moves.
-function animateMerges(merged) {
+// Each cell clears its own data-merged when its animation ends, so a cell
+// that is still animating is never cut short by a later move. Only cells
+// that merge again restart (remove, reflow, set).
+cellEls.forEach((el) =>
+  el.addEventListener('animationend', (event) => {
+    if (event.animationName === 'merge-burst') el.removeAttribute('data-merged');
+  }),
+);
+
+function clearMerges() {
   cellEls.forEach((el) => el.removeAttribute('data-merged'));
-  clearTimeout(mergeTimer);
-  if (merged.length === 0) return;
-  void boardEl.offsetWidth;
-  merged.forEach(([r, c]) => {
-    cellEls[r * SIZE + c].dataset.merged = 'true';
-  });
-  mergeTimer = setTimeout(() => {
-    cellEls.forEach((el) => el.removeAttribute('data-merged'));
-  }, MERGE_ANIMATION_MS);
 }
 
-function render({ animate = false } = {}) {
+// Marks the cells created by merges so CSS plays the burst animation.
+function animateMerges(merged) {
+  if (merged.length === 0 || reducedMotion.matches) return;
+  const cells = merged.map(([r, c]) => cellEls[r * SIZE + c]);
+  cells.forEach((el) => el.removeAttribute('data-merged'));
+  void boardEl.offsetWidth; // flush styles so the animation restarts
+  cells.forEach((el) => {
+    el.dataset.merged = 'true';
+  });
+}
+
+function render() {
   state.board.forEach((row, r) =>
     row.forEach((value, c) => {
       const el = cellEls[r * SIZE + c];
@@ -141,7 +149,6 @@ function render({ animate = false } = {}) {
   scoreEl.textContent = String(state.score);
   bestEl.textContent = String(best);
 
-  animateMerges(animate ? state.merged : []);
   renderMessages();
 
   window.__game = {
@@ -155,13 +162,15 @@ function render({ animate = false } = {}) {
 
 function onMove(direction) {
   const next = applyMove(state, direction, rng, { spawn: params.spawn });
-  const changed = next !== state; // a blocked or no-op move returns the same state
+  if (next === state) return; // blocked or no-op move: leave the board (and any running animation) alone
   state = next;
-  render({ animate: changed });
+  render();
+  animateMerges(state.merged);
 }
 
 function onContinue() {
   state = continueGame(state);
+  clearMerges();
   render();
 }
 
@@ -170,6 +179,7 @@ function onNewGame() {
   // restarts the seeded sequence so a seeded session is reproducible.
   rng = createRng(params.seed);
   state = newGame({ rng });
+  clearMerges();
   render();
 }
 
@@ -180,6 +190,29 @@ document.addEventListener('keydown', (event) => {
   if (!direction) return;
   event.preventDefault();
   onMove(direction);
+});
+
+// ---------- touch / swipe ----------
+
+let swipeStart = null;
+
+boardEl.addEventListener('pointerdown', (event) => {
+  if (event.pointerType === 'mouse') return;
+  swipeStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
+});
+
+boardEl.addEventListener('pointerup', (event) => {
+  if (!swipeStart || swipeStart.id !== event.pointerId) return;
+  const dx = event.clientX - swipeStart.x;
+  const dy = event.clientY - swipeStart.y;
+  swipeStart = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN_PX) return;
+  if (Math.abs(dx) > Math.abs(dy)) onMove(dx > 0 ? 'right' : 'left');
+  else onMove(dy > 0 ? 'down' : 'up');
+});
+
+boardEl.addEventListener('pointercancel', () => {
+  swipeStart = null;
 });
 
 newGameBtn.addEventListener('click', onNewGame);
