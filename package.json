@@ -7,7 +7,9 @@
   "scripts": {
     "start": "http-server . -p 8080 -c-1",
     "dev": "http-server . -p 8080 -c-1 -o",
-    "test": "playwright test"
+    "test": "playwright test",
+    "bump": "node scripts/bump-version.mjs",
+    "pretest": "node scripts/bump-version.mjs"
   },
   "license": "MIT",
   "devDependencies": {

@@ -38,6 +38,10 @@ Params combine, e.g. `?board=1024,1024,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off`.
 
 "New game" ignores `?board`, starts from a fresh seeded sequence (same `?seed` gives the same start), and keeps the best score.
 
+## Cache busting
+
+GitHub Pages caches files for 10 minutes. `styles.css`, `src/ui.js` and the module imports carry `?v=<hash>`. After editing `styles.css` or anything in `src/`, run `npm run bump` (`npm test` does it automatically via `pretest`) and commit the result; a test fails if the hash is stale.
+
 ## Tests
 
 ```

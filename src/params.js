@@ -3,7 +3,7 @@
 //   ?board=2,2,0,0,...   16 values, row-major, each 0 or a power of 2
 //   ?spawn=off           no new tiles after moves
 
-import { SIZE } from './game.js';
+import { SIZE } from './game.js?v=59121eb1';
 
 const MAX_TILE = 131072; // 2^17, the theoretical maximum on a 4x4 board
 

@@ -1,8 +1,8 @@
 // UI layer: renders state, handles input, persists best score.
 // All game rules live in game.js; URL parsing lives in params.js.
 
-import { SIZE, createRng, newGame, applyMove, continueGame } from './game.js';
-import { parseParams } from './params.js';
+import { SIZE, createRng, newGame, applyMove, continueGame } from './game.js?v=59121eb1';
+import { parseParams } from './params.js?v=59121eb1';
 
 const BEST_KEY = '2048:best';
 const SWIPE_MIN_PX = 24; // shortest finger travel that counts as a swipe
