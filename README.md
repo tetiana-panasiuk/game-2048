@@ -40,7 +40,9 @@ Params combine, e.g. `?board=1024,1024,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off`.
 
 ## Colour themes
 
-Four swatches under the board switch the palette: Ocean (default), Lavender, Mint, Midnight. The choice is saved in `localStorage` (`2048:theme`) and applied before first paint by a small inline script in `index.html`. Themes are CSS variables (`:root[data-theme='…']` in `styles.css`; Ocean is the `:root` default). Every theme must keep WCAG AA contrast for tiles, text and buttons; the tests check it.
+A small palette button next to "New game" opens a popover with four themes: Ocean (default), Lavender, Mint, Midnight. It closes after a choice, on a click or tap outside, on Escape, or on a second click of the button. While it is open, arrow keys, WASD and swipes don't move tiles (arrows move between options, Enter selects); the first tap or swipe outside only closes it. The choice is saved in `localStorage` (`2048:theme`) and applied before first paint by a small inline script in `index.html`. Themes are CSS variables (`:root[data-theme='…']` in `styles.css`; Ocean is the `:root` default). Every theme must keep WCAG AA contrast for tiles, text and buttons; the tests check it.
+
+Test ids: `theme-button`, `theme-popover`, `theme-option-ocean|lavender|mint|midnight`.
 
 ## Cache busting
 

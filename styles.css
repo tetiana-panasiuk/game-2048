@@ -41,7 +41,7 @@
   --merge-duration: 200ms;
   /* Cell size is limited by width and by height so the whole layout
      (header + toolbar + board) always fits in the dynamic viewport. */
-  --cell: min(80px, calc((100vw - 82px) / 4), calc((100dvh - 290px) / 4));
+  --cell: min(80px, calc((100vw - 82px) / 4), calc((100dvh - 230px) / 4));
 }
 
 * {
@@ -307,7 +307,9 @@ h1 {
   }
   .btn {
     min-height: 44px; /* comfortable tap target */
-    white-space: nowrap;
+  }
+  .btn--icon {
+    width: 44px;
   }
   .message-title {
     font-size: 34px;
@@ -323,20 +325,61 @@ h1 {
   }
 }
 
-/* Theme picker */
-.themes {
+/* Theme picker: icon button next to "New game" + small popover */
+.toolbar-actions {
   display: flex;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 8px;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.btn {
+  min-height: 40px;
+}
+
+.btn--icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  padding: 0;
+  background: var(--cell-bg); /* muted, follows the theme */
+  color: var(--text);
+}
+
+.btn--icon:hover,
+.btn--icon[aria-expanded='true'] {
+  background: var(--board-bg);
+}
+
+.theme-menu {
+  position: relative;
+  display: flex;
+}
+
+.theme-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5; /* above the win / game-over overlay */
+  display: flex;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--board-bg);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.theme-popover[hidden] {
+  display: none;
 }
 
 .swatch {
   position: relative;
-  width: 44px; /* tap target */
-  height: 44px;
+  width: 36px; /* tap target; the visible circle is 20px */
+  height: 36px;
   padding: 0;
   border: 0;
+  border-radius: 50%;
   background: transparent;
   cursor: pointer;
   touch-action: manipulation;
@@ -348,21 +391,17 @@ h1 {
   inset: 8px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--sw-a) 50%, var(--sw-b) 50%);
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
-.swatch[aria-checked='true']::after {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  border: 3px solid var(--text);
+.swatch[aria-checked='true']::before {
+  /* thin outline around the active theme */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15), 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text);
 }
 
 .swatch:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: -2px;
-  border-radius: 50%;
+  outline-offset: -1px;
 }
 
 .swatch[data-theme-choice='ocean'] { --sw-a: #3b4cb8; --sw-b: #5fdcd3; }

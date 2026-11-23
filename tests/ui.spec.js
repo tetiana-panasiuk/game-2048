@@ -93,12 +93,11 @@ test.describe('page is fixed', () => {
     const { box, vw, vh, top, bottom } = await page.evaluate(() => {
       const r = document.querySelector('[data-testid="board"]').getBoundingClientRect();
       const h = document.querySelector('.header').getBoundingClientRect();
-      const t = document.querySelector('.themes').getBoundingClientRect();
-      return { box: r, vw: innerWidth, vh: innerHeight, top: h.top, bottom: t.bottom };
+      return { box: r, vw: innerWidth, vh: innerHeight, top: h.top, bottom: r.bottom };
     });
     // horizontal: board centered
     expect(Math.abs(box.x + box.width / 2 - vw / 2)).toBeLessThan(1.5);
-    // vertical: gap above header ≈ gap below the theme picker (the last block)
+    // vertical: gap above header ≈ gap below board
     expect(Math.abs(top - (vh - bottom))).toBeLessThan(2);
     expect(top).toBeGreaterThanOrEqual(0);
     expect(bottom).toBeLessThanOrEqual(vh);
@@ -222,67 +221,192 @@ test.describe('desktop keyboard', () => {
   });
 });
 
-test.describe('colour theme picker', () => {
+test.describe('colour theme picker (palette button + popover)', () => {
   const bodyBg = (page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const NAMES = ['ocean', 'lavender', 'mint', 'midnight'];
+  const open = async (page) => {
+    await page.getByTestId('theme-button').click();
+    await expect(page.getByTestId('theme-popover')).toBeVisible();
+  };
+  const board = (page) => page.evaluate(() => JSON.stringify(window.__game.board));
 
-  test('offers four themes, ocean selected by default', async ({ page }) => {
+  test('there is no swatch row under the board any more', async ({ page }) => {
     await page.goto('/');
-    for (const t of ['ocean', 'lavender', 'mint', 'midnight']) {
-      await expect(page.getByTestId(`theme-${t}`)).toBeVisible();
-    }
-    await expect(page.getByTestId('theme-ocean')).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByTestId('theme-mint')).toHaveAttribute('aria-checked', 'false');
+    expect(await page.locator('.themes').count()).toBe(0);
+    await expect(page.getByTestId('theme-popover')).toBeHidden();
   });
 
-  test('choosing a theme changes the colours and the selection', async ({ page }) => {
+  test('icon button sits next to New game with the same height', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(() => {
+      const q = (id) => document.querySelector(`[data-testid="${id}"]`).getBoundingClientRect();
+      const a = q('theme-button'), b = q('new-game-button');
+      return { ah: a.height, bh: b.height, aRight: a.right, bLeft: b.left, aTop: a.top, bTop: b.top, text: document.querySelector('[data-testid="theme-button"]').textContent.trim() };
+    });
+    expect(r.ah).toBeCloseTo(r.bh, 0);
+    expect(r.aTop).toBeCloseTo(r.bTop, 0);
+    expect(r.aRight).toBeLessThanOrEqual(r.bLeft);
+    expect(r.text).toBe(''); // icon only
+  });
+
+  test('opens on click with four options, ocean active', async ({ page }) => {
+    await page.goto('/');
+    const btn = page.getByTestId('theme-button');
+    await expect(btn).toHaveAttribute('aria-expanded', 'false');
+    await open(page);
+    await expect(btn).toHaveAttribute('aria-expanded', 'true');
+    for (const n of NAMES) await expect(page.getByTestId(`theme-option-${n}`)).toBeVisible();
+    await expect(page.getByTestId('theme-option-ocean')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('options are 20px circles with a tap area of at least 36px, inside the screen', async ({ page }) => {
+    await page.goto('/');
+    await open(page);
+    const r = await page.evaluate(() => {
+      const o = document.querySelector('[data-testid="theme-option-mint"]');
+      const b = o.getBoundingClientRect();
+      const dot = getComputedStyle(o, '::before');
+      const p = document.querySelector('[data-testid="theme-popover"]').getBoundingClientRect();
+      return { w: b.width, h: b.height, dotInset: parseFloat(dot.top), left: p.left, right: p.right, vw: innerWidth };
+    });
+    expect(r.w).toBeGreaterThanOrEqual(36);
+    expect(r.h).toBeGreaterThanOrEqual(36);
+    expect(r.w - 2 * r.dotInset).toBe(20); // visible circle
+    expect(r.left).toBeGreaterThanOrEqual(0);
+    expect(r.right).toBeLessThanOrEqual(r.vw);
+  });
+
+  test('choosing a theme applies it, closes the popover and marks the active one', async ({ page }) => {
     await page.goto('/');
     const ocean = await bodyBg(page);
     for (const t of ['lavender', 'mint', 'midnight']) {
-      await page.getByTestId(`theme-${t}`).click();
+      await open(page);
+      await page.getByTestId(`theme-option-${t}`).click();
+      await expect(page.getByTestId('theme-popover')).toBeHidden();
       await expect(page.locator('html')).toHaveAttribute('data-theme', t);
-      await expect(page.getByTestId(`theme-${t}`)).toHaveAttribute('aria-checked', 'true');
-      await expect(page.getByTestId('theme-ocean')).toHaveAttribute('aria-checked', 'false');
       expect(await bodyBg(page)).not.toBe(ocean);
+      await open(page);
+      await expect(page.getByTestId(`theme-option-${t}`)).toHaveAttribute('aria-checked', 'true');
+      await expect(page.getByTestId('theme-option-ocean')).toHaveAttribute('aria-checked', 'false');
+      await page.keyboard.press('Escape');
     }
-    await page.getByTestId('theme-ocean').click();
+    await open(page);
+    await page.getByTestId('theme-option-ocean').click();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
     expect(await bodyBg(page)).toBe(ocean);
   });
 
   test('choice is remembered after reload', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('theme-midnight').click();
+    await open(page);
+    await page.getByTestId('theme-option-midnight').click();
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'midnight');
-    await expect(page.getByTestId('theme-midnight')).toHaveAttribute('aria-checked', 'true');
+    await open(page);
+    await expect(page.getByTestId('theme-option-midnight')).toHaveAttribute('aria-checked', 'true');
   });
 
-  test('?theme= overrides the saved choice; invalid names are ignored', async ({ page }) => {
+  test('?theme= overrides the saved choice; unknown names fall back to it', async ({ page }) => {
     await page.goto('/');
-    await page.getByTestId('theme-midnight').click();
+    await open(page);
+    await page.getByTestId('theme-option-midnight').click();
     await page.goto('/?theme=mint');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'mint');
     await page.goto('/?theme=ocean');
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
     await page.goto('/?theme=hotpink');
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'midnight'); // falls back to the saved choice
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'midnight');
+  });
+
+  test('closes on Escape, on the icon again, and on a click outside', async ({ page }) => {
+    await page.goto('/');
+    const pop = page.getByTestId('theme-popover');
+    await open(page);
+    await page.keyboard.press('Escape');
+    await expect(pop).toBeHidden();
+    await expect(page.getByTestId('theme-button')).toBeFocused();
+    await open(page);
+    await page.getByTestId('theme-button').click();
+    await expect(pop).toBeHidden();
+    await open(page);
+    await page.mouse.click(5, 5);
+    await expect(pop).toBeHidden();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/); // nothing was chosen
+  });
+
+  test('clicks inside the popover (not on an option) keep it open', async ({ page }) => {
+    await page.goto('/');
+    await open(page);
+    const box = await page.getByTestId('theme-popover').boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + 3); // padding strip above the options
+    await expect(page.getByTestId('theme-popover')).toBeVisible();
   });
 
   test('picking a theme does not touch the game', async ({ page }) => {
     await page.goto('/?board=2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off');
-    await page.getByTestId('theme-lavender').click();
+    await open(page);
+    await page.getByTestId('theme-option-lavender').click();
     expect(await page.evaluate(() => window.__game.board[0])).toEqual([2, 2, 0, 0]);
     expect(await page.evaluate(() => window.__game.score)).toBe(0);
   });
 
-  test('swatches are at least 44px (tap target) and fit the screen', async ({ page }) => {
-    await page.goto('/');
-    const r = await page.evaluate(() => {
-      const b = document.querySelector('[data-testid="theme-mint"]').getBoundingClientRect();
-      return { w: b.width, h: b.height, right: document.querySelector('.themes').getBoundingClientRect().right, vw: innerWidth };
-    });
-    expect(r.w).toBeGreaterThanOrEqual(44);
-    expect(r.h).toBeGreaterThanOrEqual(44);
-    expect(r.right).toBeLessThanOrEqual(r.vw);
+  test('game keys do nothing while the popover is open, and work again after', async ({ page }, testInfo) => {
+    test.skip(isMobile(testInfo), 'keyboard');
+    await page.goto('/?board=2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off');
+    const start = await board(page);
+    await open(page);
+    for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'a', 'd', 'w', 's']) await page.keyboard.press(k);
+    await expect(page.getByTestId('theme-popover')).toBeVisible();
+    expect(await board(page)).toBe(start);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ArrowLeft');
+    expect(await page.evaluate(() => window.__game.board[0])).toEqual([4, 0, 0, 0]);
   });
+
+  test('arrow keys move focus between options and Enter selects', async ({ page }, testInfo) => {
+    test.skip(isMobile(testInfo), 'keyboard');
+    await page.goto('/');
+    await open(page);
+    await expect(page.getByTestId('theme-option-ocean')).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByTestId('theme-option-lavender')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('theme-popover')).toBeHidden();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'lavender');
+  });
+
+  test('swipes do not move tiles while the popover is open; the first outside swipe only closes it', async ({ page }, testInfo) => {
+    test.skip(!isMobile(testInfo), 'touch');
+    await page.goto('/?board=2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off');
+    const vw = page.viewportSize().width;
+    await open(page);
+    // swipe starts outside the popover
+    await swipe(page, { x: vw - 10, y: 400 }, { x: 10, y: 405 });
+    await expect(page.getByTestId('theme-popover')).toBeHidden();
+    expect(await page.evaluate(() => window.__game.board[0])).toEqual([2, 2, 0, 0]);
+    // popover closed: the next swipe moves tiles again
+    await swipe(page, { x: vw - 10, y: 400 }, { x: 10, y: 405 });
+    expect(await page.evaluate(() => window.__game.board[0])).toEqual([4, 0, 0, 0]);
+  });
+
+  test('tapping the icon and an option works by touch', async ({ page }, testInfo) => {
+    test.skip(!isMobile(testInfo), 'touch');
+    await page.goto('/');
+    await page.getByTestId('theme-button').tap();
+    await expect(page.getByTestId('theme-popover')).toBeVisible();
+    await page.getByTestId('theme-option-mint').tap();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'mint');
+    await expect(page.getByTestId('theme-popover')).toBeHidden();
+  });
+
+  for (const theme of THEMES) {
+    test(`icon is muted but visible: contrast >= 3:1 (${theme || 'default'})`, async ({ page }) => {
+      await page.goto(`/?seed=1${theme ? `&theme=${theme}` : ''}`);
+      const [fg, bg] = await page.evaluate(() => {
+        const s = getComputedStyle(document.querySelector('[data-testid="theme-button"]'));
+        return [s.color, s.backgroundColor];
+      });
+      expect(contrast(rgb(fg), rgb(bg))).toBeGreaterThanOrEqual(3);
+    });
+  }
 });

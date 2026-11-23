@@ -1,8 +1,8 @@
 // UI layer: renders state, handles input, persists best score.
 // All game rules live in game.js; URL parsing lives in params.js.
 
-import { SIZE, createRng, newGame, applyMove, continueGame } from './game.js?v=5190e68f';
-import { parseParams } from './params.js?v=5190e68f';
+import { SIZE, createRng, newGame, applyMove, continueGame } from './game.js?v=f16be3b3';
+import { parseParams } from './params.js?v=f16be3b3';
 
 const BEST_KEY = '2048:best';
 const THEME_KEY = '2048:theme';
@@ -28,6 +28,8 @@ const messagesEl = document.getElementById('messages');
 
 const params = parseParams(window.location.search);
 params.warnings.forEach((w) => console.warn(`[2048] ${w}`));
+
+let popoverOpen = false; // theme popover (see the picker section below)
 
 let rng = createRng(params.seed);
 let state = newGame({ rng, board: params.board });
@@ -187,6 +189,10 @@ function onNewGame() {
 
 document.addEventListener('keydown', (event) => {
   if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (popoverOpen) {
+    onPopoverKey(event); // game keys do nothing while the theme popover is open
+    return;
+  }
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
   const direction = KEY_TO_DIRECTION[key];
   if (!direction) return;
@@ -204,6 +210,12 @@ document.addEventListener('touchmove', (event) => event.preventDefault(), { pass
 let swipeStart = null;
 
 document.addEventListener('pointerdown', (event) => {
+  if (popoverOpen) {
+    // A tap or swipe outside only closes the popover; it never becomes a move.
+    if (!themeMenu.contains(event.target)) closePopover();
+    swipeStart = null;
+    return;
+  }
   if (event.pointerType === 'mouse') return;
   swipeStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
 });
@@ -223,16 +235,34 @@ document.addEventListener('pointercancel', () => {
 });
 
 // ---------- colour theme picker ----------
-// The initial theme is applied by the inline script in index.html; this only
-// syncs the picker and handles choices. "ocean" is the default (no data-theme).
+// The initial theme is applied by the inline script in index.html; this
+// handles the palette button, the popover and saving the choice.
+// "ocean" is the default (no data-theme).
 
-const themeButtons = [...document.querySelectorAll('[data-theme-choice]')];
+const themeMenu = document.querySelector('.theme-menu');
+const themeButton = document.querySelector('[data-testid="theme-button"]');
+const themePopover = document.querySelector('[data-testid="theme-popover"]');
+const themeOptions = [...document.querySelectorAll('[data-theme-choice]')];
 const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 
 function syncThemePicker() {
   const current = document.documentElement.dataset.theme || 'ocean';
-  themeButtons.forEach((btn) => btn.setAttribute('aria-checked', String(btn.dataset.themeChoice === current)));
+  themeOptions.forEach((btn) => btn.setAttribute('aria-checked', String(btn.dataset.themeChoice === current)));
   if (themeColorMeta) themeColorMeta.content = getComputedStyle(document.body).backgroundColor;
+}
+
+function openPopover() {
+  popoverOpen = true;
+  themePopover.hidden = false;
+  themeButton.setAttribute('aria-expanded', 'true');
+  (themeOptions.find((o) => o.getAttribute('aria-checked') === 'true') || themeOptions[0]).focus();
+}
+
+function closePopover({ restoreFocus = false } = {}) {
+  popoverOpen = false;
+  themePopover.hidden = true;
+  themeButton.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) themeButton.focus();
 }
 
 function chooseTheme(name) {
@@ -247,7 +277,31 @@ function chooseTheme(name) {
   syncThemePicker();
 }
 
-themeButtons.forEach((btn) => btn.addEventListener('click', () => chooseTheme(btn.dataset.themeChoice)));
+// Keyboard while the popover is open: Escape closes, arrows move between
+// options, Enter/Space (native button click) selects, Tab leaves and closes.
+function onPopoverKey(event) {
+  const i = themeOptions.indexOf(document.activeElement);
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closePopover({ restoreFocus: true });
+  } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+    event.preventDefault();
+    themeOptions[(i + 1) % themeOptions.length].focus();
+  } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    themeOptions[(i - 1 + themeOptions.length) % themeOptions.length].focus();
+  } else if (event.key === 'Tab') {
+    closePopover();
+  }
+}
+
+themeButton.addEventListener('click', () => (popoverOpen ? closePopover() : openPopover()));
+themeOptions.forEach((btn) =>
+  btn.addEventListener('click', () => {
+    chooseTheme(btn.dataset.themeChoice);
+    closePopover({ restoreFocus: true });
+  }),
+);
 syncThemePicker();
 
 newGameBtn.addEventListener('click', onNewGame);
