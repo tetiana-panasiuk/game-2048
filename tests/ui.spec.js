@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const isMobile = (testInfo) => testInfo.project.name.startsWith('iphone');
 
+const THEMES = ['', 'lavender', 'mint', 'midnight'];
 const TILE_VALUES = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072];
 
 function luminance([r, g, b]) {
@@ -129,29 +130,50 @@ test.describe('design', () => {
     expect(r).toEqual({ board: 16, tile: 10, empty: 10 });
   });
 
-  test('every tile value passes WCAG AA and the palette is cool', async ({ page }) => {
-    for (const v of TILE_VALUES) {
-      await page.goto(`/?board=${v},0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off`);
-      const { bg, fg } = await page.evaluate(() => {
-        const s = getComputedStyle(document.querySelector('[data-testid="cell-0-0"]'));
-        return { bg: s.backgroundColor, fg: s.color };
-      });
-      const ratio = contrast(rgb(bg), rgb(fg));
-      expect(ratio, `tile ${v} ${bg} / ${fg}`).toBeGreaterThanOrEqual(4.5);
-      const [r, , b] = rgb(bg);
-      expect(b, `tile ${v} should not be warm (${bg})`).toBeGreaterThanOrEqual(r - 10);
-    }
-  });
+  for (const theme of THEMES) {
+    test(`every tile value passes WCAG AA and the palette is cool (${theme || 'default'})`, async ({ page }) => {
+      for (const v of TILE_VALUES) {
+        await page.goto(`/?board=${v},0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off${theme ? `&theme=${theme}` : ''}`);
+        const { bg, fg } = await page.evaluate(() => {
+          const s = getComputedStyle(document.querySelector('[data-testid="cell-0-0"]'));
+          return { bg: s.backgroundColor, fg: s.color };
+        });
+        expect(contrast(rgb(bg), rgb(fg)), `tile ${v} ${bg} / ${fg}`).toBeGreaterThanOrEqual(4.5);
+        const [r, , b] = rgb(bg);
+        expect(b, `tile ${v} should not be warm (${bg})`).toBeGreaterThanOrEqual(r - 10);
+      }
+    });
 
-  test('tile colours are all different', async ({ page }) => {
-    const seen = new Map();
-    for (const v of TILE_VALUES.slice(0, 11)) {
-      await page.goto(`/?board=${v},0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off`);
-      const bg = await page.evaluate(() => getComputedStyle(document.querySelector('[data-testid="cell-0-0"]')).backgroundColor);
-      expect(seen.has(bg), `${v} has the same colour as ${seen.get(bg)}`).toBe(false);
-      seen.set(bg, v);
-    }
-  });
+    test(`text, buttons and score boxes pass WCAG AA (${theme || 'default'})`, async ({ page }) => {
+      await page.goto(`/?seed=1${theme ? `&theme=${theme}` : ''}`);
+      const c = await page.evaluate(() => {
+        const st = (el) => getComputedStyle(el);
+        const pageBg = st(document.body).backgroundColor;
+        return {
+          title: [st(document.querySelector('h1')).color, pageBg],
+          hint: [st(document.querySelector('.hint')).color, pageBg],
+          button: [st(document.querySelector('[data-testid="new-game-button"]')).color, st(document.querySelector('[data-testid="new-game-button"]')).backgroundColor],
+          score: [st(document.querySelector('[data-testid="score"]')).color, st(document.querySelector('.score-box')).backgroundColor],
+          label: [st(document.querySelector('.score-label')).color, st(document.querySelector('.score-box')).backgroundColor],
+        };
+      });
+      for (const [name, [fg, bg]] of Object.entries(c)) {
+        expect(contrast(rgb(fg), rgb(bg)), `${name}: ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  }
+
+  for (const theme of THEMES) {
+    test(`tile colours are all different (${theme || 'default'})`, async ({ page }) => {
+      const seen = new Map();
+      for (const v of TILE_VALUES.slice(0, 11)) {
+        await page.goto(`/?board=${v},0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off${theme ? `&theme=${theme}` : ''}`);
+        const bg = await page.evaluate(() => getComputedStyle(document.querySelector('[data-testid="cell-0-0"]')).backgroundColor);
+        expect(seen.has(bg), `${v} has the same colour as ${seen.get(bg)}`).toBe(false);
+        seen.set(bg, v);
+      }
+    });
+  }
 });
 
 test.describe('swipes anywhere on the screen', () => {

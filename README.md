@@ -33,6 +33,8 @@ Arrow keys or WASD to move, "New game" button to restart. On touch devices swipe
 | `?board=2,2,0,0,4,0,0,0,...` | Initial board: 16 values, row-major, each `0` or a power of 2. Invalid values are ignored with a console warning. No tiles are added on top. |
 | `?spawn=off` | No new tile after moves. The initial two tiles are still placed unless `board` is given. |
 
+| `?theme=lavender`, `mint`, `midnight` | Colour theme preview (default is the blue/teal/purple palette). |
+
 Params combine, e.g. `?board=1024,1024,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off`.
 
 "New game" ignores `?board`, starts from a fresh seeded sequence (same `?seed` gives the same start), and keeps the best score.

@@ -9,12 +9,16 @@ const states = {
   over: '/?board=2,4,2,4,4,2,4,2,2,4,2,4,4,2,4,2&spawn=off',
 };
 
+const themes = ['', 'lavender', 'mint', 'midnight'];
+
+for (const theme of themes) {
 for (const [name, url] of Object.entries(states)) {
-  test(`screenshot ${name}`, async ({ page }, testInfo) => {
-    await page.goto(url);
+  test(`screenshot ${theme || 'default'} ${name}`, async ({ page }, testInfo) => {
+    await page.goto(theme ? `${url}&theme=${theme}` : url);
     if (name === 'win') await page.keyboard.press('ArrowLeft');
     if (name === 'numbers') await page.getByTestId('continue-button').click(); // dismiss the win overlay
     await page.waitForTimeout(350); // let the merge burst finish
-    await page.screenshot({ path: `screenshots/${testInfo.project.name}-${name}.png` });
+    await page.screenshot({ path: `screenshots/${theme || 'default'}-${testInfo.project.name}-${name}.png` });
   });
+}
 }
