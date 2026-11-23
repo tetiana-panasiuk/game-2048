@@ -193,15 +193,20 @@ document.addEventListener('keydown', (event) => {
 });
 
 // ---------- touch / swipe ----------
+// Swipes anywhere on the screen control the game. The page itself never
+// scrolls: CSS fixes the layout, and iOS Safari also needs touchmove
+// cancelled explicitly to stop the rubber-band bounce.
+
+document.addEventListener('touchmove', (event) => event.preventDefault(), { passive: false });
 
 let swipeStart = null;
 
-boardEl.addEventListener('pointerdown', (event) => {
+document.addEventListener('pointerdown', (event) => {
   if (event.pointerType === 'mouse') return;
   swipeStart = { id: event.pointerId, x: event.clientX, y: event.clientY };
 });
 
-boardEl.addEventListener('pointerup', (event) => {
+document.addEventListener('pointerup', (event) => {
   if (!swipeStart || swipeStart.id !== event.pointerId) return;
   const dx = event.clientX - swipeStart.x;
   const dy = event.clientY - swipeStart.y;
@@ -211,7 +216,7 @@ boardEl.addEventListener('pointerup', (event) => {
   else onMove(dy > 0 ? 'down' : 'up');
 });
 
-boardEl.addEventListener('pointercancel', () => {
+document.addEventListener('pointercancel', () => {
   swipeStart = null;
 });
 

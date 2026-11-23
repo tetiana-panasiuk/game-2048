@@ -23,7 +23,7 @@ The game must be served over HTTP (ES modules don't load from `file://`).
 
 ## Controls
 
-Arrow keys or WASD to move, "New game" button to restart. On touch devices swipe on the board (at least 24 px; the dominant axis decides the direction). The board blocks page scrolling and double-tap zoom so swipes don't scroll the page.
+Arrow keys or WASD to move, "New game" button to restart. On touch devices swipe anywhere on the screen (at least 24 px; the dominant axis decides the direction). The page is fixed (`position: fixed`, `100dvh`, `touchmove` cancelled) so it never scrolls or bounces. The hint text switches with `@media (hover: none) and (pointer: coarse)`.
 
 ## URL parameters (for testing)
 
@@ -36,6 +36,14 @@ Arrow keys or WASD to move, "New game" button to restart. On touch devices swipe
 Params combine, e.g. `?board=1024,1024,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off`.
 
 "New game" ignores `?board`, starts from a fresh seeded sequence (same `?seed` gives the same start), and keeps the best score.
+
+## Tests
+
+```
+npm test
+```
+
+Playwright (`tests/`) runs on WebKit with iPhone 14 and iPhone SE viewports and on desktop Chrome (1280x800): required `data-testid`s and URL params, no scrolling, centering, hint text, rounded corners, WCAG AA contrast for every tile value, and swipes. `tests/screenshots.spec.js` writes review screenshots to `screenshots/` (git-ignored). Browsers: `npx playwright install chromium webkit`.
 
 ## Merge animation
 

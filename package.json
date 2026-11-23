@@ -6,10 +6,12 @@
   "private": true,
   "scripts": {
     "start": "http-server . -p 8080 -c-1",
-    "dev": "http-server . -p 8080 -c-1 -o"
+    "dev": "http-server . -p 8080 -c-1 -o",
+    "test": "playwright test"
   },
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "http-server": "^14.1.1"
   }
 }
