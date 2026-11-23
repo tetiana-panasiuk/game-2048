@@ -6,11 +6,19 @@
     <meta name="theme-color" content="#eef2fb" />
     <title>2048</title>
     <script>
-      // Optional colour theme from ?theme= (see styles.css), set before first paint.
-      var theme = new URLSearchParams(location.search).get("theme");
-      if (theme) document.documentElement.dataset.theme = theme;
+      // Colour theme (see styles.css), set before first paint: ?theme= wins,
+      // then the saved choice. "ocean" is the default and has no data-theme.
+      (function () {
+        var THEMES = ["lavender", "mint", "midnight"];
+        var t = new URLSearchParams(location.search).get("theme");
+        if (THEMES.indexOf(t) === -1 && t !== "ocean") {
+          t = null; // missing or unknown: use the saved choice
+          try { t = localStorage.getItem("2048:theme"); } catch (e) {}
+        }
+        if (THEMES.indexOf(t) !== -1) document.documentElement.dataset.theme = t;
+      })();
     </script>
-    <link rel="stylesheet" href="styles.css?v=59121eb1" />
+    <link rel="stylesheet" href="styles.css?v=5190e68f" />
   </head>
   <body>
     <main class="app">
@@ -42,8 +50,15 @@
         <!-- win / game-over overlays are inserted here by ui.js while visible -->
         <div class="messages" id="messages"></div>
       </div>
+
+      <div class="themes" role="radiogroup" aria-label="Colour theme">
+        <button type="button" class="swatch" role="radio" data-theme-choice="ocean" data-testid="theme-ocean" aria-label="Ocean" title="Ocean"></button>
+        <button type="button" class="swatch" role="radio" data-theme-choice="lavender" data-testid="theme-lavender" aria-label="Lavender" title="Lavender"></button>
+        <button type="button" class="swatch" role="radio" data-theme-choice="mint" data-testid="theme-mint" aria-label="Mint" title="Mint"></button>
+        <button type="button" class="swatch" role="radio" data-theme-choice="midnight" data-testid="theme-midnight" aria-label="Midnight" title="Midnight"></button>
+      </div>
     </main>
 
-    <script type="module" src="src/ui.js?v=59121eb1"></script>
+    <script type="module" src="src/ui.js?v=5190e68f"></script>
   </body>
 </html>

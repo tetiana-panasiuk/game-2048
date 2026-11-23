@@ -1,10 +1,12 @@
 // UI layer: renders state, handles input, persists best score.
 // All game rules live in game.js; URL parsing lives in params.js.
 
-import { SIZE, createRng, newGame, applyMove, continueGame } from './game.js?v=59121eb1';
-import { parseParams } from './params.js?v=59121eb1';
+import { SIZE, createRng, newGame, applyMove, continueGame } from './game.js?v=5190e68f';
+import { parseParams } from './params.js?v=5190e68f';
 
 const BEST_KEY = '2048:best';
+const THEME_KEY = '2048:theme';
+const THEMES = ['ocean', 'lavender', 'mint', 'midnight'];
 const SWIPE_MIN_PX = 24; // shortest finger travel that counts as a swipe
 
 const KEY_TO_DIRECTION = {
@@ -219,6 +221,34 @@ document.addEventListener('pointerup', (event) => {
 document.addEventListener('pointercancel', () => {
   swipeStart = null;
 });
+
+// ---------- colour theme picker ----------
+// The initial theme is applied by the inline script in index.html; this only
+// syncs the picker and handles choices. "ocean" is the default (no data-theme).
+
+const themeButtons = [...document.querySelectorAll('[data-theme-choice]')];
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+
+function syncThemePicker() {
+  const current = document.documentElement.dataset.theme || 'ocean';
+  themeButtons.forEach((btn) => btn.setAttribute('aria-checked', String(btn.dataset.themeChoice === current)));
+  if (themeColorMeta) themeColorMeta.content = getComputedStyle(document.body).backgroundColor;
+}
+
+function chooseTheme(name) {
+  if (!THEMES.includes(name)) return;
+  if (name === 'ocean') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = name;
+  try {
+    window.localStorage.setItem(THEME_KEY, name);
+  } catch {
+    // storage unavailable: the choice just won't persist
+  }
+  syncThemePicker();
+}
+
+themeButtons.forEach((btn) => btn.addEventListener('click', () => chooseTheme(btn.dataset.themeChoice)));
+syncThemePicker();
 
 newGameBtn.addEventListener('click', onNewGame);
 

@@ -93,11 +93,12 @@ test.describe('page is fixed', () => {
     const { box, vw, vh, top, bottom } = await page.evaluate(() => {
       const r = document.querySelector('[data-testid="board"]').getBoundingClientRect();
       const h = document.querySelector('.header').getBoundingClientRect();
-      return { box: r, vw: innerWidth, vh: innerHeight, top: h.top, bottom: r.bottom };
+      const t = document.querySelector('.themes').getBoundingClientRect();
+      return { box: r, vw: innerWidth, vh: innerHeight, top: h.top, bottom: t.bottom };
     });
     // horizontal: board centered
     expect(Math.abs(box.x + box.width / 2 - vw / 2)).toBeLessThan(1.5);
-    // vertical: gap above header ≈ gap below board
+    // vertical: gap above header ≈ gap below the theme picker (the last block)
     expect(Math.abs(top - (vh - bottom))).toBeLessThan(2);
     expect(top).toBeGreaterThanOrEqual(0);
     expect(bottom).toBeLessThanOrEqual(vh);
@@ -218,5 +219,70 @@ test.describe('desktop keyboard', () => {
     expect(await page.evaluate(() => window.__game.board[0])).toEqual([0, 0, 0, 4]);
     await page.keyboard.press('ArrowDown');
     expect(await page.evaluate(() => window.__game.board[3])).toEqual([0, 0, 0, 4]);
+  });
+});
+
+test.describe('colour theme picker', () => {
+  const bodyBg = (page) => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+  test('offers four themes, ocean selected by default', async ({ page }) => {
+    await page.goto('/');
+    for (const t of ['ocean', 'lavender', 'mint', 'midnight']) {
+      await expect(page.getByTestId(`theme-${t}`)).toBeVisible();
+    }
+    await expect(page.getByTestId('theme-ocean')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('theme-mint')).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('choosing a theme changes the colours and the selection', async ({ page }) => {
+    await page.goto('/');
+    const ocean = await bodyBg(page);
+    for (const t of ['lavender', 'mint', 'midnight']) {
+      await page.getByTestId(`theme-${t}`).click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', t);
+      await expect(page.getByTestId(`theme-${t}`)).toHaveAttribute('aria-checked', 'true');
+      await expect(page.getByTestId('theme-ocean')).toHaveAttribute('aria-checked', 'false');
+      expect(await bodyBg(page)).not.toBe(ocean);
+    }
+    await page.getByTestId('theme-ocean').click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
+    expect(await bodyBg(page)).toBe(ocean);
+  });
+
+  test('choice is remembered after reload', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('theme-midnight').click();
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'midnight');
+    await expect(page.getByTestId('theme-midnight')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('?theme= overrides the saved choice; invalid names are ignored', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('theme-midnight').click();
+    await page.goto('/?theme=mint');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'mint');
+    await page.goto('/?theme=ocean');
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
+    await page.goto('/?theme=hotpink');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'midnight'); // falls back to the saved choice
+  });
+
+  test('picking a theme does not touch the game', async ({ page }) => {
+    await page.goto('/?board=2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0&spawn=off');
+    await page.getByTestId('theme-lavender').click();
+    expect(await page.evaluate(() => window.__game.board[0])).toEqual([2, 2, 0, 0]);
+    expect(await page.evaluate(() => window.__game.score)).toBe(0);
+  });
+
+  test('swatches are at least 44px (tap target) and fit the screen', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(() => {
+      const b = document.querySelector('[data-testid="theme-mint"]').getBoundingClientRect();
+      return { w: b.width, h: b.height, right: document.querySelector('.themes').getBoundingClientRect().right, vw: innerWidth };
+    });
+    expect(r.w).toBeGreaterThanOrEqual(44);
+    expect(r.h).toBeGreaterThanOrEqual(44);
+    expect(r.right).toBeLessThanOrEqual(r.vw);
   });
 });
